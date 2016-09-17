@@ -1,0 +1,5 @@
+RasPiMS/
+RasPiDS3/
+*.o
+Main
+Log.txt
