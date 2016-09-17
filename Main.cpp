@@ -46,11 +46,11 @@ int main(void){
   Log << "Path :" + path << endl; 
   //MDD通信セットアップ
   try{
-		ms.init();
-	}
-	catch(const char *str){
+    ms.init();
+  }
+  catch(const char *str){
     return -1;
-	}
+  }
   Log << "MotorSerialのセットアップ成功" << endl;
   //コントローラー接続確認
   if(!controller.connectedCheck()){
@@ -68,7 +68,6 @@ int main(void){
   pinMode(Air_3, OUTPUT);
   pinMode(SMotor_L, OUTPUT);
   pinMode(SMotor_R, OUTPUT);
-
   pinMode(Lsin_1, INPUT);
   pinMode(Lsin_1, INPUT);
   //リミットスイッチのプルダウン
@@ -92,18 +91,20 @@ int main(void){
     //L1を押した時のアクション
     if(controller.button(L1)){
       regulation = 0.2;         //低速モード（出力が通常の0.2倍）
+      //自動制御①
       if(controller.press(TRIANGLE)){
         cout << "自動制御1" << endl;
         delay(500);
         cout << "自動制御1終了" << endl;
       }
+      //自動制御②
       if(controller.press(SQUARE)){
         cout << "自動制御2" << endl;
         delay(1500);
         cout << "自動制御2終了" << endl;
       }
       //回転腕で箱を掴む、離す
-      //CIRCLEを押すと0.5秒回転（掴む）、もう一度押すと0.5秒逆回転（離す）
+      //CIRCLEを押すと3.0秒回転（掴む）、もう一度押すと3.0秒逆回転（離す）
       static bool SMotorSpin = false;
       static bool OpenFlag = false;
       static bool CloseFlag = false;
@@ -111,8 +112,10 @@ int main(void){
         SMotorSpin = !SMotorSpin;
       if(SMotorSpin){
         if(!OpenFlag){
+          unsigned long open = millis();
+          while(millis() < open + 3000){
           digitalWrite(SMotor_L, 1);
-          delay(500);
+          }
           digitalWrite(SMotor_L, 0);
           cout << "つかんだ" << endl;
           OpenFlag = true;
@@ -120,8 +123,10 @@ int main(void){
         }
       }else{
         if(!CloseFlag && controller.press(CIRCLE)){
-          digitalWrite(SMotor_R, 1);
-          delay(500);
+          unsigned long close = millis();
+          while(millis() < close + 3000){
+            digitalWrite(SMotor_R, 1);
+          }
           digitalWrite(SMotor_R, 0);
           cout << "はなした" << endl;
           CloseFlag = true;
@@ -144,18 +149,23 @@ int main(void){
     bool dual = false;    //trueにするとLeftStickのみでロボット全体を操作できる
     //R1を押した時のアクション
     if(controller.button(R1)){
+      //dual = true;
       regulation = 0.1;     //超低速モード（出力が通常のの0.1倍）
-      //電磁弁1作動
+      //吸引機構の電磁弁1
       if(controller.press(SQUARE)){
-        digitalWrite(Air_2, 1);
-        delay(60);
+        unsigned long air2 = millis();
+        while(millis() < air2 + 60){
+          digitalWrite(Air_2, 1);
+        }
         digitalWrite(Air_2, 0);
         cout << "電磁弁1作動" << endl;
       }
-      //電磁弁2作動
+      //吸引機構の電磁弁2
       if(controller.press(CIRCLE)){
-        digitalWrite(Air_3, 1);
-        delay(60);
+        unsigned long air3 = millis();
+        while(millis() < air3 + 60){
+          digitalWrite(Air_3, 1);
+        }
         digitalWrite(Air_3, 0);
         cout << "電磁弁2作動" << endl;
       }
@@ -271,7 +281,7 @@ int main(void){
     if(controller.press(TRIANGLE))
       MagnetFlag = !MagnetFlag;
     if(MagnetFlag && controller.press(TRIANGLE) && !(controller.button(L1))){
-      ms.send(11, 3, 200);
+      ms.send(11, 3, -240);
       cout << "電磁石ON" << endl;
     }
     if(!MagnetFlag && controller.press(TRIANGLE) && !(controller.button(L1))){
