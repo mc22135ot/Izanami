@@ -27,13 +27,14 @@ int main(void){
   int Air_2 = 17;   //吸引①
   int Air_3 = 18;   //吸引②
   //リミットスイッチ
-  int Lsin_1 = 2;
+  int Lsin_1 = 27;  //回転腕の行き過ぎ防止
+  int Lsin_2 = 22;
   //確認LED
   //小型モーター（回転・上下機構）
   int SMotor_L = 26;
   int SMotor_R = 20;
   /*-------割り当てここまで-------*/
-  cout << "Main start." << endl;
+  cout << "プログラム開始." << endl;
   //プログラム起動時刻の取得
   time_t progStartTime = time(NULL);
   struct tm *pnow = localtime(&progStartTime);
@@ -50,15 +51,15 @@ int main(void){
 	catch(const char *str){
     return -1;
 	}
-  Log << "Success setup MotorSerial." << endl;
+  Log << "MotorSerialのセットアップ成功" << endl;
   //コントローラー接続確認
   if(!controller.connectedCheck()){
-    cout << "Controller unconnected." << endl;
+    cout << "コントローラが接続されていません。" << endl;
     return 0;
   }
-  Log << "Success connect to controller." << endl;
+  Log << "コントローラの接続成功" << endl;
 
-  cout << "Standby MotorDriverDriver Communication." << endl;
+  cout << "MDD通信準備完了" << endl;
   Log << "Standby MotorDriverDriver Communication." << endl;
 
   pinMode(RunLED, OUTPUT);
@@ -69,8 +70,10 @@ int main(void){
   pinMode(SMotor_R, OUTPUT);
 
   pinMode(Lsin_1, INPUT);
+  pinMode(Lsin_1, INPUT);
   //リミットスイッチのプルダウン
   pullUpDnControl(Lsin_1, PUD_DOWN);
+  pullUpDnControl(Lsin_2, PUD_DOWN);
 
   digitalWrite(RunLED, 1);
   digitalWrite(SMotor_L, 0);
@@ -160,12 +163,17 @@ int main(void){
     //橋用タイヤ
     if(controller.button(L1) && controller.button(R1)){
       //ms.send(1, 2, -MAX);
-      ms.send(1, 2, ((controller.stick(LEFT_Y) + controller.stick(RIGHT_Y)) / 2));
-      cout << ((controller.stick(LEFT_Y) + controller.stick(RIGHT_Y)) / 2) << endl;
+      int tire = controller.stick(LEFT_Y) + controller.stick(RIGHT_Y);
+      if(tire > MAX)
+        tire = MAX;
+      if(tire < -MAX)
+        tire = -MAX;
+      ms.send(1, 2, tire);
+      cout << tire << endl;
     }
-
-    //--------------ここから足回り(メカナムによる移動)--------------
-    //左側前後
+    if(controller.release(L1) || controller.release(R1))
+      ms.send(1, 2, 0);
+    //足回り（左側前後）
     double left_x = 0;
     double left_y = 0;
     double left_theta = 0;
@@ -192,7 +200,7 @@ int main(void){
     }
     ms.send(1, 3, lf * left_w * regulation);  //左前
     ms.send(2, 3, lb * left_w * regulation);  //左後
-    //右側前後
+    //足回り（右側前後）
     double right_x = 0;
     double right_y = 0;
     double right_theta = 0;
@@ -249,42 +257,15 @@ int main(void){
       ms.send(4, 2, 0);
     //吸引機構の回転
     if(controller.button(L2)){      //左回転
-      ms.send(16, 2, (controller.stick(LEFT_T) / 2));
-      cout << (controller.stick(LEFT_T) / 2) << endl;
+      ms.send(18, 2, -(controller.stick(LEFT_T) / 22));
+      cout << (controller.stick(LEFT_T) / 22) << endl;
     }
     if(controller.button(R2)){      //右回転
-      ms.send(16, 2, -(controller.stick(RIGHT_T) / 2));
-      cout << -(controller.stick(RIGHT_T) / 2) << endl;
+      ms.send(18, 2, (controller.stick(RIGHT_T) / 20));
+      cout << -(controller.stick(RIGHT_T) / 20) << endl;
     }
     if(controller.release(L2) || controller.release(R2))
-      ms.send(16, 2, 0);
-
-    //回転・上下機構用モーター SQUAREを押すと0.5秒回転、もう一度押すと0.5秒逆回転
-    //SQUAREを押すとつかむ、もう一度押すとはなす
-    /*static bool SMotorSpin = false;
-    static bool OpenFlag = false;
-    static bool CloseFlag = false;
-    if(controller.press(CIRCLE))
-      SMotorSpin = !SMotorSpin;
-    if(SMotorSpin){
-      if(!OpenFlag){
-        digitalWrite(SMotor_L, 1);
-        delay(500);
-        digitalWrite(SMotor_L, 0);
-        cout << "つかんだ" << endl;
-        OpenFlag = true;
-        CloseFlag = false;
-      }
-    }else{
-      if(!CloseFlag && controller.press(CIRCLE)){
-        digitalWrite(SMotor_R, 1);
-        delay(500);
-        digitalWrite(SMotor_R, 0); 
-        cout << "はなした" << endl;
-        CloseFlag = true;
-        OpenFlag = false;
-      }
-    }*/
+      ms.send(18, 4, 0);
     //電磁石 TRIANGLEを押すとON、もう一度押すとOFF
     static bool MagnetFlag = false;
     if(controller.press(TRIANGLE))
@@ -302,7 +283,7 @@ int main(void){
     if(controller.press(CROSS))
       PompSpin = !PompSpin;
     if(PompSpin && controller.press(CROSS) && !(controller.button(L1)) ){
-      ms.send(11, 2, 200);
+      ms.send(11, 2, 240);
       cout << "真空ポンプ作動中" << endl;
     }
     if(!PompSpin && controller.press(CROSS) && !(controller.button(L1))){
